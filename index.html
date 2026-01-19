@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Xoleric World's</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>file:///storage/emulated/0/Android/data/com.microsoft.emmx/files/Download/MicrosoftEdgeDropFiles/Default/89890963ec06adbecebb835fb4f75ed3.jpg</text></svg>">
+</head>
+<body>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #000; overflow: hidden; height: 100vh; width: 100vw; cursor: crosshair; font-family: 'Courier New', monospace; }
+        
+        canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
+
+        /* Overlay qatlamlari */
+        .ui-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        
+        .warning-overlay {
+            background: radial-gradient(circle, transparent 20%, #000 150%);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 1s ease;
+        }
+
+        .warning-text {
+            color: #0f0; text-align: center; text-shadow: 0 0 15px #0f0;
+            animation: pulse 1.5s infinite alternate;
+        }
+
+        @keyframes pulse { from { opacity: 0.4; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+
+        .terminal {
+            position: absolute; bottom: 30px; left: 30px; color: #0f0;
+            font-size: 13px; line-height: 1.4; text-shadow: 0 0 5px #0f0;
+            max-width: 400px; height: 150px; overflow: hidden;
+        }
+
+        .scan-line {
+            width: 100%; height: 3px; background: rgba(0, 255, 0, 0.2);
+            position: absolute; box-shadow: 0 0 15px #0f0;
+            animation: moveScan 4s linear infinite;
+        }
+
+        @keyframes moveScan { from { top: -5%; } to { top: 105%; } }
+    </style>
+</head>
+<body>
+
+<div class="ui-layer warning-overlay" id="overlay">
+    <div class="warning-text">
+        <h1 style="font-size: 3.5rem; letter-spacing: 15px;">VOID_SYSTEM</h1>
+        <p style="margin-top: 10px;">[ CLICK TO INFILTRATE ]</p>
+    </div>
+</div>
+
+<div class="ui-layer">
+    <div class="scan-line" id="scanner" style="display: none;"></div>
+    <div class="terminal" id="terminal"></div>
+</div>
+
+<canvas id="matrixCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('matrixCanvas');
+    const ctx = canvas.getContext('2d');
+    const terminal = document.getElementById('terminal');
+    const overlay = document.getElementById('overlay');
+    
+    let state = {
+        active: false,
+        fontSize: 16,
+        columns: [],
+        symbols: '日한アイウエオカキクケコサシスセソタチツテトナニヌネノ0123456789ABCDEF'.split(''),
+        audioStarted: false
+    };
+
+    // --- KLASSLAR (OOP) ---
+    class MatrixColumn {
+        constructor(x) {
+            this.x = x;
+            this.y = Math.random() * -100;
+            this.speed = Math.random() * 2 + 3;
+            this.chars = [];
+            this.maxLength = Math.floor(Math.random() * 20) + 10;
+        }
+
+        update() {
+            if (this.y * state.fontSize > canvas.height && Math.random() > 0.975) {
+                this.y = 0;
+            }
+            this.y += 0.5; // Tezlikni jilovlash (silliq harakat)
+        }
+
+        draw() {
+            for (let i = 0; i < this.maxLength; i++) {
+                const char = state.symbols[Math.floor(Math.random() * state.symbols.length)];
+                const yPos = (this.y - i) * state.fontSize;
+                
+                if (yPos < 0 || yPos > canvas.height) continue;
+
+                const opacity = 1 - (i / this.maxLength);
+                ctx.fillStyle = i === 0 ? `rgba(255, 255, 255, ${opacity})` : `rgba(0, 255, 70, ${opacity})`;
+                
+                if (i === 0) {
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = '#fff';
+                } else {
+                    ctx.shadowBlur = 0;
+                }
+
+                ctx.fillText(char, this.x, yPos);
+            }
+        }
+    }
+
+    // --- LOGIKA ---
+    function init() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        const colCount = Math.floor(canvas.width / state.fontSize);
+        state.columns = [];
+        for (let i = 0; i < colCount; i++) {
+            state.columns.push(new MatrixColumn(i * state.fontSize));
+        }
+    }
+
+    function addTerminalLine(text) {
+        const line = document.createElement('div');
+        line.textContent = `> ${text}`;
+        terminal.appendChild(line);
+        if (terminal.childNodes.length > 8) terminal.removeChild(terminal.firstChild);
+    }
+
+    // --- AUDIO ---
+    const playBeep = (freq) => {
+        if (!state.audioStarted) return;
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.1);
+    };
+
+    // --- ANIMATSIYA ---
+    function animate() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.15)'; // Trail effekt
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.font = `${state.fontSize}px monospace`;
+        ctx.textAlign = 'center';
+
+        state.columns.forEach(col => {
+            col.update();
+            col.draw();
+        });
+
+        requestAnimationFrame(animate);
+    }
+
+    // --- HODISALAR ---
+    window.addEventListener('click', () => {
+        if (!state.active) {
+            state.active = true;
+            state.audioStarted = true;
+            overlay.style.opacity = '0';
+            document.getElementById('scanner').style.display = 'block';
+            
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen();
+            }
+
+            // Terminal simulyatsiyasi
+            const tasks = ["BYPASSING_CORE...", "ENCRYPTING_TUNNEL...", "TELEGRAM_REDIRECT...", "SUCCESS."];
+            tasks.forEach((t, i) => {
+                setTimeout(() => {
+                    addTerminalLine(t);
+                    playBeep(400 + (i * 100));
+                }, i * 1000);
+            });
+
+            setTimeout(() => window.open("https://t.me/cvants", "_blank"), 3500);
+        }
+    });
+
+    window.addEventListener('resize', init);
+
+    // START
+    init();
+    animate();
+</script>
+</body>
+</html>
